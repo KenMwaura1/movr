@@ -9,7 +9,7 @@ from uuid import uuid4
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.expression import func
 
-from movr.models import LocationHistory, Vehicle
+from .models import LocationHistory, Vehicle
 
 
 def start_ride_txn(session, vehicle_id):
@@ -81,13 +81,22 @@ def end_ride_txn(session, vehicle_id, new_longitude, new_latitude,
     # NEW location_history TABLE.
     # HELPFUL DOC: https://docs.sqlalchemy.org/en/13/orm/session_api.html#sqlalchemy.orm.session.Session.add
 
-    # Legacy update (from previous schema)
-    vehicle.last_longitude = new_longitude
-    vehicle.last_latitude = new_latitude
+
     vehicle.battery = new_battery
     vehicle.in_use = False
 
-    return True  # Just making it explicit that this worked.
+    ride_end_time = str(func.now())
+    new_history_entry = LocationHistory(id=str(uuid4()),
+                                        vehicle_id=vehicle_id,
+                                        longitude=new_longitude,
+                                        latitude=new_latitude,
+                                        ts=ride_end_time)
+    try:
+        session.add(new_history_entry)
+        return True
+    except Exception as e:
+        print(e)
+        return False
 
 
 def add_vehicle_txn(session, vehicle_type, longitude, latitude, battery):
